@@ -7,50 +7,43 @@ import fitz  # PyMuPDF
 import pandas as pd
 import os
 import io
+import zipfile  # 압축 파일 만들기용
 from openpyxl import load_workbook
 from openpyxl.styles import Border, Side, Alignment, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 # ==============================================================================
-# [필수] 여기에 발급받은 API 키를 따옴표 안에 붙여넣으세요!
-# ==============================================================================
-GOOGLE_API_KEY = "AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk"
+# [필수] API 키 입력
+GOOGLE_API_KEY = "AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk여기에_새로_발급받은_키를_넣으세요"
 # ==============================================================================
 
-# Gemini 설정
 genai.configure(api_key=GOOGLE_API_KEY)
-
-# 화면 설정 (넓게 보기)
-st.set_page_config(page_title="사내용 PDF 변환기", page_icon="🏢", layout="wide")
-st.title("🏢 사내용 PDF ➡️ 엑셀 변환기")
-st.markdown("""
-- **여러 파일을 한 번에** 올릴 수 있습니다.
-- 파일 이름은 **원본 그대로 유지**됩니다.
-- 보안을 위해 외부 공유 시 주의해주세요.
-""")
-
-# API 키 누락 방지
-if "여기에" in GOOGLE_API_KEY:
-    st.error("🚨 코드 15번째 줄에 API 키를 입력하고 저장해주세요!")
-    st.stop()
-
-# 모델 설정 (가장 빠르고 저렴한 모델)
 try:
     model = genai.GenerativeModel('gemini-2.5-flash')
 except:
-    st.error("모델 로딩 실패. 잠시 후 다시 시도해주세요.")
+    st.error("모델 오류: gemini-1.5-flash 모델을 찾을 수 없습니다.")
 
-# --- 다중 파일 업로더 ---
+st.set_page_config(page_title="Gemini PDF 변환기 Pro", page_icon="💳", layout="wide")
+st.title("💳 대량 PDF 엑셀 변환기 (사라짐 방지 + ZIP 다운)")
+
+if "여기에" in GOOGLE_API_KEY:
+    st.error("🚨 코드 16번째 줄에 API 키를 입력해주세요!")
+    st.stop()
+
+# --- [핵심 1] 기억 저장소 초기화 (새로고침 되어도 데이터 유지) ---
+if 'processed_files' not in st.session_state:
+    st.session_state.processed_files = []
+
+# 파일 업로더
 uploaded_files = st.file_uploader(
-    "변환할 PDF 파일들을 여기에 모두 드래그하세요 (여러 개 가능)", 
+    "변환할 PDF 파일들을 여기에 모두 드래그하세요", 
     type="pdf", 
     accept_multiple_files=True
 )
 
-# --- 변환 처리 함수 ---
+# --- 변환 함수 (기존과 동일) ---
 def process_pdf(file_bytes, original_name):
     input_pdf = f"temp_{original_name}"
-    # 확장자만 .xlsx로 변경
     output_xls = os.path.splitext(original_name)[0] + ".xlsx"
     
     with open(input_pdf, "wb") as f:
@@ -59,27 +52,18 @@ def process_pdf(file_bytes, original_name):
     try:
         doc = fitz.open(input_pdf)
         all_dfs = []
-        
-        # 엑셀 컬럼 정의
         columns = ["거래일자", "거래시간", "상태", "거래구분", "거래금액", "표면잔액", "취급점", "적요", "은행명", "계좌번호"]
 
+        # 페이지별 처리
         for i, page in enumerate(doc):
-            # 이미지 변환
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
             img_data = pix.tobytes("png")
-            
-            # Gemini에게 보낼 데이터
             image_parts = [{"mime_type": "image/png", "data": img_data}]
             
-            # 강력한 프롬프트
             prompt = """
             이 이미지의 은행 거래내역 표를 파이프(|) 기호로 구분된 텍스트로 추출해.
-            
-            [규칙]
-            1. 각 줄은 10개 항목: 날짜|시간|상태|구분|거래금액|표면잔액|취급점|적요|은행명|계좌번호
-            2. '표면잔액'과 '취급점'이 붙어있으면 반드시 구분선(|)으로 나눠.
-            3. 금액의 쉼표(,)는 유지하고, 계좌번호는 숫자만 남겨.
-            4. 헤더와 배경 글자(KB 등)는 무시해.
+            [규칙] 10개 항목: 날짜|시간|상태|구분|거래금액|표면잔액|취급점|적요|은행명|계좌번호
+            '표면잔액'과 '취급점' 구분선(|) 필수. 금액 콤마 유지. 계좌번호 숫자만. 헤더 무시.
             """
             
             response = model.generate_content([prompt, image_parts[0]])
@@ -89,7 +73,6 @@ def process_pdf(file_bytes, original_name):
             for line in raw_text.split('\n'):
                 if "|" in line:
                     parts = line.split('|')
-                    # 칸 개수 맞추기 (오류 방지)
                     if len(parts) < 10: parts += [""] * (10 - len(parts))
                     if len(parts) > 10: parts = parts[:10]
                     parts = [p.strip() for p in parts]
@@ -101,15 +84,13 @@ def process_pdf(file_bytes, original_name):
 
         if all_dfs:
             final_df = pd.concat(all_dfs, ignore_index=True)
-            
-            # 숫자 데이터 정리 (금액 콤마 제거 후 숫자로 변환)
             for col in ["거래금액", "표면잔액"]:
                 final_df[col] = final_df[col].astype(str).str.replace(',', '').str.replace('원', '')
                 final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
 
             final_df.to_excel(output_xls, index=False)
 
-            # --- 엑셀 디자인 적용 ---
+            # 디자인 적용
             wb = load_workbook(output_xls)
             ws = wb.active
             
@@ -127,33 +108,29 @@ def process_pdf(file_bytes, original_name):
                         cell.font = header_font
                         cell.alignment = center_align
                     else:
-                        if cell.column in [5, 6]: # 금액 열
+                        if cell.column in [5, 6]: 
                             cell.number_format = '#,##0'
                             cell.alignment = right_align
-                        elif cell.column == 10: # 계좌번호 열
-                            cell.number_format = '@' # 텍스트 강제
+                        elif cell.column == 10:
+                            cell.number_format = '@'
                             cell.value = str(cell.value)
                             cell.alignment = center_align
                         else:
                             cell.alignment = center_align
             
-            # A4 용지 설정 (9)
             ws.page_setup.paperSize = 9
             ws.page_setup.fitToWidth = 1
             ws.page_setup.fitToHeight = False
 
-            # 칸 너비 자동 조절
             for column_cells in ws.columns:
                 length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
                 ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length + 4
 
             wb.save(output_xls)
             
-            # 결과물 읽기
             with open(output_xls, "rb") as f:
                 data = f.read()
             
-            # 청소
             if os.path.exists(input_pdf): os.remove(input_pdf)
             if os.path.exists(output_xls): os.remove(output_xls)
             
@@ -161,7 +138,6 @@ def process_pdf(file_bytes, original_name):
             
     except Exception as e:
         return None, str(e)
-    
     return None, "변환 실패"
 
 # --- 메인 실행 로직 ---
@@ -169,26 +145,62 @@ if uploaded_files:
     st.write(f"✅ **{len(uploaded_files)}개**의 파일이 선택되었습니다.")
     
     if st.button("🚀 일괄 변환 시작 (클릭)"):
-        status_area = st.container()
+        # 기존 기록 초기화
+        st.session_state.processed_files = []
         
-        # 파일 하나씩 순서대로 처리
+        # --- [핵심 2] 전체 진행률 바 생성 ---
+        progress_text = "작업 시작..."
+        my_bar = st.progress(0, text=progress_text)
+        
+        total_files = len(uploaded_files)
+        
         for idx, file in enumerate(uploaded_files):
-            with status_area:
-                with st.expander(f"🔄 처리 중... {file.name}", expanded=True):
-                    excel_data, result_name = process_pdf(file.getbuffer(), file.name)
-                    
-                    if excel_data and isinstance(excel_data, bytes):
-                        st.success(f"완료! ({result_name})")
-                        
-                        # [핵심] 원본 파일명으로 다운로드 버튼 생성
-                        st.download_button(
-                            label=f"📥 {result_name} 다운로드",
-                            data=excel_data,
-                            file_name=result_name,
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"down_{idx}"
-                        )
-                    else:
-                        st.error(f"실패: {file.name} / 사유: {result_name}")
+            # 진행률 업데이트 (0% ~ 100%)
+            percent = int(((idx) / total_files) * 100)
+            my_bar.progress(percent, text=f"🔄 처리 중 ({idx+1}/{total_files}): {file.name}")
+            
+            excel_data, result_name = process_pdf(file.getbuffer(), file.name)
+            
+            if excel_data:
+                # 결과물을 기억 저장소(Session State)에 저장
+                st.session_state.processed_files.append({
+                    "name": result_name,
+                    "data": excel_data
+                })
         
-        st.success("🎉 모든 작업이 끝났습니다!")
+        my_bar.progress(100, text="✅ 모든 변환이 완료되었습니다!")
+
+# --- 결과 화면 표시 (저장소에 데이터가 있을 때만 표시) ---
+if st.session_state.processed_files:
+    st.success(f"🎉 총 {len(st.session_state.processed_files)}개의 파일 변환 완료!")
+    
+    # 1. 개별 다운로드 버튼 보여주기
+    st.write("### 📂 개별 파일 다운로드")
+    cols = st.columns(3) # 3열로 예쁘게 배치
+    for i, file_info in enumerate(st.session_state.processed_files):
+        with cols[i % 3]:
+            st.download_button(
+                label=f"📥 {file_info['name']}",
+                data=file_info['data'],
+                file_name=file_info['name'],
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"btn_{i}"
+            )
+    
+    st.divider() # 구분선
+    
+    # 2. [핵심 3] 전체 ZIP 다운로드 버튼 생성
+    st.write("### 📦 한 번에 다운로드 (ZIP)")
+    
+    # 메모리 상에서 ZIP 파일 만들기
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zf:
+        for file_info in st.session_state.processed_files:
+            zf.writestr(file_info['name'], file_info['data'])
+    
+    st.download_button(
+        label="📦 전체 파일 압축 다운로드 (.zip)",
+        data=zip_buffer.getvalue(),
+        file_name="변환결과_모음.zip",
+        mime="application/zip"
+    )
