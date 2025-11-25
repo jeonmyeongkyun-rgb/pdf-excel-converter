@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 
 # ==============================================================================
 # [필수] AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk
-GOOGLE_API_KEY = "AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk여기에_새로_발급받은_키를_넣으세요"
+GOOGLE_API_KEY = "AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk"
 # ==============================================================================
 
 genai.configure(api_key=GOOGLE_API_KEY)
