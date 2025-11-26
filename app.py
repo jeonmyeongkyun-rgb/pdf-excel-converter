@@ -25,124 +25,45 @@ except:
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
     except:
-        st.error("모델 로딩 실패.")
+        st.error("❌ 모델 로딩 실패.")
 
-# 페이지 설정 (Centered로 집중도 높임)
-st.set_page_config(page_title="Clean PDF Converter", page_icon="✨", layout="centered")
+# 페이지 설정
+st.set_page_config(page_title="Premium PDF Converter", page_icon="🥂", layout="wide")
 
-# --------------------------------------------------------------------------------
-# 🎨 [NEW] 애플/토스 스타일의 모던 CSS
-# --------------------------------------------------------------------------------
+# 🎨 디자인
 st.markdown("""
 <style>
-    /* 1. 전체 배경 및 폰트 (깔끔한 화이트/그레이) */
-    .stApp {
-        background-color: #F9FAFB; /* 아주 연한 회색 */
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        color: #111827;
-    }
-
-    /* 2. 헤더 스타일 */
-    h1 {
-        font-weight: 800 !important;
-        color: #111827 !important;
-        font-size: 2.5rem !important;
-        margin-bottom: 0.5rem !important;
-        text-align: center;
-    }
-    .subtitle {
-        text-align: center;
-        color: #6B7280;
-        font-size: 1.1rem;
-        margin-bottom: 3rem;
-    }
-
-    /* 3. 파일 업로더 커스텀 (카드 형태) */
-    [data-testid='stFileUploader'] {
-        background-color: #FFFFFF;
-        border: 2px dashed #E5E7EB;
-        border-radius: 16px;
-        padding: 30px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: border-color 0.3s;
-    }
-    [data-testid='stFileUploader']:hover {
-        border-color: #3B82F6; /* 호버 시 블루 */
-    }
-    [data-testid='stFileUploader'] section {
-        background-color: #FFFFFF;
-    }
-
-    /* 4. 버튼 스타일 (애플 스타일 블루 버튼) */
-    div.stButton > button {
-        background-color: #2563EB; /* 로얄 블루 */
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 0.6rem 1.5rem;
-        font-weight: 600;
-        box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
-        transition: all 0.2s;
-        width: 100%;
-    }
-    div.stButton > button:hover {
-        background-color: #1D4ED8;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 10px rgba(37, 99, 235, 0.3);
-        color: white;
-    }
-
-    /* 5. 결과 카드 스타일 (박스 디자인) */
-    .result-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #F3F4F6;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    /* 6. 진행바 색상 */
-    .stProgress > div > div > div > div {
-        background-color: #2563EB;
-    }
-    
-    /* 7. 성공 메시지 등 알림창 깔끔하게 */
-    .stSuccess, .stInfo {
-        border-radius: 10px;
-        border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+    .stApp { background-color: #F9FAFB; color: #111827; font-family: 'Noto Sans KR', sans-serif; }
+    h1 { font-family: 'Playfair Display', serif; color: #111827 !important; text-align: center; font-weight: 800; }
+    .subtitle { text-align: center; color: #6B7280; margin-bottom: 2rem; }
+    [data-testid='stFileUploader'] { background-color: #FFFFFF; border: 2px dashed #E5E7EB; border-radius: 16px; padding: 30px; }
+    div.stButton > button { background-color: #2563EB; color: white; border: none; border-radius: 10px; padding: 0.6rem 1.5rem; font-weight: 600; width: 100%; }
+    div.stButton > button:hover { background-color: #1D4ED8; transform: translateY(-1px); }
+    .stSuccess, .stInfo, .stError { border-radius: 10px; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 </style>
 """, unsafe_allow_html=True)
-# --------------------------------------------------------------------------------
 
-# 헤더 영역
 st.markdown("<h1>PDF to Excel Converter</h1>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>복잡한 표도 깔끔하게 엑셀로 변환해 드립니다.</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>깔끔하고 강력한 AI 문서 변환기</div>", unsafe_allow_html=True)
 
 if "여기에" in GOOGLE_API_KEY:
-    st.error("⚠️ API 키 설정이 필요합니다. 코드 17번째 줄을 확인해주세요.")
+    st.error("🚨 API 키 설정을 확인해주세요.")
     st.stop()
 
-# 세션 초기화
 if 'processed_files' not in st.session_state:
     st.session_state.processed_files = []
 if 'last_uploaded_ids' not in st.session_state:
     st.session_state.last_uploaded_ids = ""
 
-# 파일 업로드 영역
 uploaded_files = st.file_uploader("변환할 PDF 파일을 드래그 앤 드롭하세요", type="pdf", accept_multiple_files=True)
 
-# --- 변환 로직 (기능 동일) ---
 def process_pdf_universal(file_bytes, original_name):
     temp_input = f"temp_{original_name}"
     file_root = os.path.splitext(original_name)[0]
-    final_output_xls = f"{file_root}.xlsx" # 심플하게 .xlsx만 붙임
+    final_output_xls = f"{file_root}.xlsx"
     
+    # 파일 생성
     with open(temp_input, "wb") as f:
         f.write(file_bytes)
 
@@ -175,13 +96,12 @@ def process_pdf_universal(file_bytes, original_name):
             final_df = pd.concat(all_dfs, ignore_index=True)
             final_df.to_excel(final_output_xls, index=False)
 
-            # 엑셀 디자인 (기본)
             wb = load_workbook(final_output_xls)
             ws = wb.active
             
             thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            header_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid") # 연한 회색 헤더
+            header_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
             header_font = Font(bold=True)
 
             for row in ws.iter_rows():
@@ -210,13 +130,20 @@ def process_pdf_universal(file_bytes, original_name):
             with open(final_output_xls, "rb") as f:
                 data = f.read()
             
-            if os.path.exists(temp_input): os.remove(temp_input)
-            if os.path.exists(final_output_xls): os.remove(final_output_xls)
-            
             return data, final_output_xls
             
     except Exception as e:
         return None, str(e)
+    
+    finally:
+        # [핵심 수정] 성공하든 실패하든 무조건 임시 파일 삭제!
+        if os.path.exists(temp_input): 
+            try: os.remove(temp_input)
+            except: pass
+        if os.path.exists(final_output_xls): 
+            try: os.remove(final_output_xls)
+            except: pass
+
     return None, "표 없음"
 
 # --- 자동 실행 로직 ---
@@ -244,11 +171,10 @@ if uploaded_files:
         my_bar.progress(100, text="완료!")
         st.success("모든 변환이 완료되었습니다.")
 
-# --- 결과 화면 (카드 UI 적용) ---
+# --- 결과 화면 ---
 if st.session_state.processed_files:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 전체 다운로드 버튼 (가장 크게)
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zf:
         for f in st.session_state.processed_files:
@@ -265,27 +191,17 @@ if st.session_state.processed_files:
     st.markdown("---")
     st.markdown("#### 📂 개별 파일 목록")
     
-    # 개별 파일 카드 리스트
     for i, f in enumerate(st.session_state.processed_files):
-        # 카드 디자인을 위한 컨테이너
         with st.container():
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.markdown(f"""
-                <div style="
-                    padding: 15px; 
-                    background: white; 
-                    border-radius: 10px; 
-                    border: 1px solid #E5E7EB; 
-                    display: flex; 
-                    align-items: center;
-                    margin-bottom: 10px;">
+                <div style="padding: 15px; background: white; border-radius: 10px; border: 1px solid #E5E7EB; display: flex; align-items: center; margin-bottom: 10px;">
                     <span style="font-size: 1.2rem; margin-right: 10px;">📄</span>
                     <span style="font-weight: 600; color: #374151;">{f['name']}</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col2:
-                # 버튼 높이를 맞추기 위해 약간의 여백 추가
                 st.markdown('<div style="height: 5px;"></div>', unsafe_allow_html=True)
                 st.download_button(
                     label="다운로드",
