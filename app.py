@@ -17,7 +17,6 @@ from openpyxl.utils import get_column_letter
 GOOGLE_API_KEY = "AIzaSyBQjCBOwYNjiy5Z-Ej_OQR8XSUHsbfvKPk"
 # ==============================================================================
 
-# Gemini 설정
 genai.configure(api_key=GOOGLE_API_KEY)
 
 try:
@@ -26,126 +25,129 @@ except:
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
     except:
-        st.error("❌ 모델 로딩 실패. API 키를 확인해주세요.")
+        st.error("모델 로딩 실패.")
 
-# 페이지 기본 설정
-st.set_page_config(page_title="Premium PDF Converter", page_icon="🥂", layout="wide")
+# 페이지 설정 (Centered로 집중도 높임)
+st.set_page_config(page_title="Clean PDF Converter", page_icon="✨", layout="centered")
 
 # --------------------------------------------------------------------------------
-# 🎨 [디자인 핵심] 커스텀 CSS (호텔 라운지 스타일)
+# 🎨 [NEW] 애플/토스 스타일의 모던 CSS
 # --------------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* 1. 폰트 가져오기 (Google Fonts: Playfair Display - 우아한 명조 느낌) */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap');
-
-    /* 2. 전체 배경 (깊은 차콜 블랙) */
+    /* 1. 전체 배경 및 폰트 (깔끔한 화이트/그레이) */
     .stApp {
-        background-color: #121212;
-        color: #E0E0E0;
+        background-color: #F9FAFB; /* 아주 연한 회색 */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #111827;
     }
 
-    /* 3. 헤더/제목 스타일 (골드 & 명조체) */
-    h1, h2, h3 {
-        font-family: 'Playfair Display', serif;
-        color: #D4AF37 !important; /* 샴페인 골드 */
-        font-weight: 700;
+    /* 2. 헤더 스타일 */
+    h1 {
+        font-weight: 800 !important;
+        color: #111827 !important;
+        font-size: 2.5rem !important;
+        margin-bottom: 0.5rem !important;
         text-align: center;
-        letter-spacing: 1px;
     }
-    
-    /* 부제목 스타일 */
     .subtitle {
         text-align: center;
-        color: #A0A0A0;
-        font-family: 'Noto Sans KR', sans-serif;
+        color: #6B7280;
         font-size: 1.1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
     }
 
-    /* 4. 파일 업로더 스타일 (심플하고 모던하게) */
+    /* 3. 파일 업로더 커스텀 (카드 형태) */
     [data-testid='stFileUploader'] {
-        background-color: #1E1E1E;
-        border: 1px solid #333;
-        border-radius: 10px;
-        padding: 20px;
+        background-color: #FFFFFF;
+        border: 2px dashed #E5E7EB;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: border-color 0.3s;
+    }
+    [data-testid='stFileUploader']:hover {
+        border-color: #3B82F6; /* 호버 시 블루 */
     }
     [data-testid='stFileUploader'] section {
-        background-color: #1E1E1E;
+        background-color: #FFFFFF;
     }
-    
-    /* 5. 버튼 스타일 (골드 그라데이션) */
+
+    /* 4. 버튼 스타일 (애플 스타일 블루 버튼) */
     div.stButton > button {
-        background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
-        color: #000000;
-        font-family: 'Noto Sans KR', sans-serif;
-        font-weight: bold;
+        background-color: #2563EB; /* 로얄 블루 */
+        color: white;
         border: none;
-        border-radius: 30px; /* 둥근 캡슐 모양 */
-        padding: 0.6rem 2rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        border-radius: 10px;
+        padding: 0.6rem 1.5rem;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        transition: all 0.2s;
+        width: 100%;
     }
     div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
-        color: #000000;
-        border: none;
+        background-color: #1D4ED8;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 10px rgba(37, 99, 235, 0.3);
+        color: white;
     }
 
-    /* 6. 성공/에러 메시지 박스 스타일 */
-    .stSuccess, .stInfo, .stWarning {
-        background-color: #1E1E1E !important;
-        color: #D4AF37 !important;
-        border-left: 5px solid #D4AF37 !important;
+    /* 5. 결과 카드 스타일 (박스 디자인) */
+    .result-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #F3F4F6;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     
-    /* 7. 진행바 색상 변경 */
+    /* 6. 진행바 색상 */
     .stProgress > div > div > div > div {
-        background-color: #D4AF37;
+        background-color: #2563EB;
     }
-
-    /* 8. 구분선 */
-    hr {
-        border-color: #333;
+    
+    /* 7. 성공 메시지 등 알림창 깔끔하게 */
+    .stSuccess, .stInfo {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
 # --------------------------------------------------------------------------------
 
-# 타이틀 섹션 (가운데 정렬)
-st.markdown("<h1>PREMIUM PDF CONVERTER</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Gemini 2.5 AI가 제공하는 고품격 문서 변환 서비스</p>", unsafe_allow_html=True)
-st.markdown("---")
+# 헤더 영역
+st.markdown("<h1>PDF to Excel Converter</h1>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>복잡한 표도 깔끔하게 엑셀로 변환해 드립니다.</div>", unsafe_allow_html=True)
 
 if "여기에" in GOOGLE_API_KEY:
-    st.error("🚨 API 키가 설정되지 않았습니다. 코드 17번째 줄을 확인해주세요.")
+    st.error("⚠️ API 키 설정이 필요합니다. 코드 17번째 줄을 확인해주세요.")
     st.stop()
 
-# 세션 상태 초기화
+# 세션 초기화
 if 'processed_files' not in st.session_state:
     st.session_state.processed_files = []
 if 'last_uploaded_ids' not in st.session_state:
     st.session_state.last_uploaded_ids = ""
 
-# 파일 업로더
-uploaded_files = st.file_uploader(
-    "변환할 PDF 문서를 이곳에 놓아주세요.", 
-    type="pdf", 
-    accept_multiple_files=True
-)
+# 파일 업로드 영역
+uploaded_files = st.file_uploader("변환할 PDF 파일을 드래그 앤 드롭하세요", type="pdf", accept_multiple_files=True)
 
-# --- 변환 함수 (기능은 동일) ---
+# --- 변환 로직 (기능 동일) ---
 def process_pdf_universal(file_bytes, original_name):
-    temp_input_pdf = f"temp_{original_name}"
+    temp_input = f"temp_{original_name}"
     file_root = os.path.splitext(original_name)[0]
-    final_output_xls = f"{file_root}.xlsx"
+    final_output_xls = f"{file_root}.xlsx" # 심플하게 .xlsx만 붙임
     
-    with open(temp_input_pdf, "wb") as f:
+    with open(temp_input, "wb") as f:
         f.write(file_bytes)
 
     try:
-        doc = fitz.open(temp_input_pdf)
+        doc = fitz.open(temp_input)
         all_dfs = []
         
         for i, page in enumerate(doc):
@@ -155,7 +157,7 @@ def process_pdf_universal(file_bytes, original_name):
             
             prompt = """
             이 이미지에서 '표(Table)' 데이터를 찾아서 CSV 형식으로 변환해줘.
-            배경의 워터마크는 무시하고, 표 구조를 그대로 유지해.
+            배경의 워터마크나 로고는 무시해. 표 구조를 유지해.
             숫자의 쉼표는 유지해. 오직 CSV 데이터만 출력해.
             """
             
@@ -173,13 +175,13 @@ def process_pdf_universal(file_bytes, original_name):
             final_df = pd.concat(all_dfs, ignore_index=True)
             final_df.to_excel(final_output_xls, index=False)
 
+            # 엑셀 디자인 (기본)
             wb = load_workbook(final_output_xls)
             ws = wb.active
             
-            # 엑셀 디자인 (심플)
             thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            header_fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+            header_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid") # 연한 회색 헤더
             header_font = Font(bold=True)
 
             for row in ws.iter_rows():
@@ -208,7 +210,7 @@ def process_pdf_universal(file_bytes, original_name):
             with open(final_output_xls, "rb") as f:
                 data = f.read()
             
-            if os.path.exists(temp_input_pdf): os.remove(temp_input_pdf)
+            if os.path.exists(temp_input): os.remove(temp_input)
             if os.path.exists(final_output_xls): os.remove(final_output_xls)
             
             return data, final_output_xls
@@ -216,7 +218,6 @@ def process_pdf_universal(file_bytes, original_name):
     except Exception as e:
         return None, str(e)
     return None, "표 없음"
-
 
 # --- 자동 실행 로직 ---
 if uploaded_files:
@@ -226,64 +227,71 @@ if uploaded_files:
         st.session_state.processed_files = []
         st.session_state.last_uploaded_ids = current_file_ids
         
-        # 진행바 컨테이너 (깔끔하게 보이기 위함)
-        with st.container():
-            st.write(" ") # 여백
-            progress_bar = st.progress(0, text="AI가 문서를 분석하고 있습니다...")
-            total = len(uploaded_files)
+        progress_text = "문서를 분석하고 있습니다..."
+        my_bar = st.progress(0, text=progress_text)
+        total = len(uploaded_files)
+        
+        for idx, file in enumerate(uploaded_files):
+            my_bar.progress(int((idx / total) * 100), text=f"🔄 변환 중... ({idx+1}/{total}) : {file.name}")
+            excel_data, result_name = process_pdf_universal(file.getbuffer(), file.name)
             
-            for idx, file in enumerate(uploaded_files):
-                progress_bar.progress(int((idx / total) * 100), text=f"Processing... ({idx+1}/{total}) : {file.name}")
-                
-                excel_data, result_name = process_pdf_universal(file.getbuffer(), file.name)
-                
-                if excel_data:
-                    st.session_state.processed_files.append({
-                        "name": result_name,
-                        "data": excel_data
-                    })
-            
-            progress_bar.progress(100, text="Completed.")
-            st.success("모든 변환이 완료되었습니다.")
+            if excel_data:
+                st.session_state.processed_files.append({
+                    "name": result_name,
+                    "data": excel_data
+                })
+        
+        my_bar.progress(100, text="완료!")
+        st.success("모든 변환이 완료되었습니다.")
 
-
-# --- 결과 화면 ---
+# --- 결과 화면 (카드 UI 적용) ---
 if st.session_state.processed_files:
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 전체 다운로드 버튼 (가장 크게)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zf:
+        for f in st.session_state.processed_files:
+            zf.writestr(f['name'], f['data'])
+            
+    st.download_button(
+        label="📦 전체 파일 한 번에 다운로드 (.ZIP)",
+        data=zip_buffer.getvalue(),
+        file_name="Converted_Files.zip",
+        mime="application/zip",
+        use_container_width=True
+    )
+    
     st.markdown("---")
-    st.markdown("### 📥 Download Results")
+    st.markdown("#### 📂 개별 파일 목록")
     
-    # 3열 레이아웃으로 버튼 정렬
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # ZIP 다운로드 버튼을 가장 크게/눈에 띄게 배치
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zf:
-            for f in st.session_state.processed_files:
-                zf.writestr(f['name'], f['data'])
-                
-        st.download_button(
-            label="📦 전체 일괄 다운로드 (ZIP)",
-            data=zip_buffer.getvalue(),
-            file_name="Converted_Files.zip",
-            mime="application/zip",
-            use_container_width=True # 버튼 꽉 차게
-        )
-    
-    st.write(" ") # 여백
-    st.write("**개별 파일 다운로드:**")
-    
-    # 개별 파일 리스트업
+    # 개별 파일 카드 리스트
     for i, f in enumerate(st.session_state.processed_files):
-        col_a, col_b = st.columns([4, 1])
-        with col_a:
-            st.info(f"📄 {f['name']}") # 파일명 예쁘게 표시
-        with col_b:
-            st.download_button(
-                label="다운로드",
-                data=f['data'],
-                file_name=f['name'],
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"down_{i}",
-                use_container_width=True
-            )
+        # 카드 디자인을 위한 컨테이너
+        with st.container():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"""
+                <div style="
+                    padding: 15px; 
+                    background: white; 
+                    border-radius: 10px; 
+                    border: 1px solid #E5E7EB; 
+                    display: flex; 
+                    align-items: center;
+                    margin-bottom: 10px;">
+                    <span style="font-size: 1.2rem; margin-right: 10px;">📄</span>
+                    <span style="font-weight: 600; color: #374151;">{f['name']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                # 버튼 높이를 맞추기 위해 약간의 여백 추가
+                st.markdown('<div style="height: 5px;"></div>', unsafe_allow_html=True)
+                st.download_button(
+                    label="다운로드",
+                    data=f['data'],
+                    file_name=f['name'],
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"down_{i}",
+                    use_container_width=True
+                )
